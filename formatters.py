@@ -4,30 +4,55 @@ from PIL import Image
 import pypdf
 import docx
 
+def fix_ligatures_and_chars(text):
+    """Replaces unmappable PDF ligatures and characters with standard UTF-8 letters."""
+    replacements = {
+        '\uf005': '',      # Common artifact symbols
+        '\uf002': '',
+        'ﬁ': 'fi',         # Ligature matching
+        'ﬂ': 'fl',
+        'ﬀ': 'ff',
+        'ﬃ': 'ffi',
+        'ﬄ': 'ffl',
+        '–': '-',          # En-dash to standard dash
+        '—': '—',          # Em-dash
+        '‘': "'",          # Smart directional quotes to plain quotes
+        '’': "'",
+        '“': '"',
+        '”': '"',
+        '…': '...'
+    }
+    for bad_char, good_char in replacements.items():
+        text = text.replace(bad_char, good_char)
+    return text
+
 def clean_extracted_text(text):
     """
-    Advanced text cleaner that strips out Adobe InDesign source tags,
-    formats Table of Contents lines cleanly, and forces new chapters 
-    to start on fresh pages using Form Feed characters.
+    Advanced text cleaner targeting header timestamps, font glyph issues, 
+    bulleted Table of Contents layouts, and spacing-based page breaks.
     """
-    # 1. Normalize line endings
+    # 1. Standardize text structure and resolve hidden ligatures
     text = text.replace('\r\n', '\n').replace('\r', '\n')
+    text = fix_ligatures_and_chars(text)
     
-    # 2. Strip out raw URLs / web links
+    # 2. Strip out raw URLs
     url_pattern = r'https?://\S+|www\.\S+'
     text = re.sub(url_pattern, '', text)
     
-    # 3. Fix InDesign metadata strings (e.g., "story_text.indd", "chapter1.indd")
-    # Matches words or filenames ending in .indd along with surrounding brackets/garbage
+    # 3. Wipe out running page timestamp footers (e.g., "10/24/2024 14:32" or "3:15 PM")
+    text = re.re = re.sub(r'\b\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?(\s*[APMpm]{2})?\b', '', text)
+    text = re.sub(r'\b\d{1,2}:\d{2}\s*[APMpm]{2}\b', '', text)
+    
+    # 4. Remove Adobe InDesign template markers
     text = re.sub(r'\S*?\.indd\S*', '', text)
     
-    # 4. Fix words split by a hyphen at the end of a line
+    # 5. Connect mid-sentence hyphenated line breaks
     text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', text)
     
     cleaned_lines = []
     current_paragraph = []
     
-    # Core structural markers
+    # Structural keywords
     chapter_markers = ['chapter', 'heading', 'prologue', 'epilogue', 'section', 'part', 'act', 'preface', 'foreword', 'introduction']
     
     for line in text.split('\n'):
@@ -40,22 +65,29 @@ def clean_extracted_text(text):
             cleaned_lines.append("") 
             continue
 
-        # -- SYSTEM 1: DETECT TABLE OF CONTENTS ENTRIES --
-        # Matches lines with dot leaders "..." or lines ending significantly in a page number
+        # -- FORMAT SYSTEM: CLEAN TABLE OF CONTENTS --
+        # Detect lines ending with digits (page numbers) or containing dot leaders
         is_toc_line = '...' in stripped_line or re.search(r'\s+\d+$', stripped_line)
         
-        # If it looks like a TOC line but is in the middle of a paragraph, flush the paragraph first
-        if is_toc_line and not ('chapter' in stripped_line.lower() or any(marker in stripped_line.lower() for marker in chapter_markers)):
+        if is_toc_line and not any(marker in stripped_line.lower() for marker in chapter_markers):
             if current_paragraph:
                 cleaned_lines.append(" ".join(current_paragraph))
                 current_paragraph = []
             
-            # Clean up messy TOC layout spacing into a readable format
-            cleaned_toc = re.sub(r'\.{2,}', ' . . . . . ', stripped_line)
-            cleaned_lines.append(cleaned_toc)
+            # Remove any ugly dot sequences, strip excess gaps, and format as a bulleted row
+            no_dots = re.sub(r'\.{2,}', ' ', stripped_line)
+            clean_row = re.sub(r'\s+', ' ', no_dots).strip()
+            
+            # Format nicely as: "  • Chapter Title (Page Number)"
+            match = re.search(r'(.*)\s+(\d+)$', clean_row)
+            if match:
+                title, page = match.groups()
+                cleaned_lines.append(f"  • {title.strip()}  [p. {page}]")
+            else:
+                cleaned_lines.append(f"  • {clean_row}")
             continue
 
-        # -- SYSTEM 2: DETECT CHAPTERS / PREFACES FOR HARD PAGE BREAKS --
+        # -- PAGE BREAK SYSTEM: CHAPTER DETECTION --
         is_chapter_header = any(
             stripped_line.lower().startswith(marker) for marker in chapter_markers
         ) or re.match(r'^(?=[MDCLXVI])M*(C[MD]|D?C{0,3})(X[CL]|L?X{0,3})(I[XV]|V?I{0,3})$', stripped_line)
@@ -65,10 +97,12 @@ def clean_extracted_text(text):
                 cleaned_lines.append(" ".join(current_paragraph))
                 current_paragraph = []
             
-            # '\x0c' is the ASCII Form Feed character. E-readers parse this as a clean, hard page break.
-            cleaned_lines.append("\x0c") 
-            cleaned_lines.append(f"=== {stripped_line.upper()} ===")
-            cleaned_lines.append("")
+            # Force a visual page break using a significant padding break blocks
+            cleaned_lines.append("\n\n\n\n\n\n\n\n\n\n") 
+            cleaned_lines.append(f"========================================")
+            cleaned_lines.append(f"   {stripped_line.upper()}")
+            cleaned_lines.append(f"========================================")
+            cleaned_lines.append("\n")
         else:
             current_paragraph.append(stripped_line)
             if stripped_line and stripped_line[-1] in ['.', '!', '?', '"', '”']:
@@ -78,15 +112,15 @@ def clean_extracted_text(text):
     if current_paragraph:
         cleaned_lines.append(" ".join(current_paragraph))
         
-    # 5. Clean up structural spaces and collapse excessive empty blocks
+    # Final clean-up of spacing blocks
     final_text = "\n".join(cleaned_lines)
     final_text = re.sub(r'[ \t]+', ' ', final_text) 
-    final_text = re.sub(r'\n{4,}', '\n\n\n', final_text) 
+    final_text = re.sub(r'\n{12,}', '\n\n\n\n\n\n\n\n\n\n', final_text) 
     
     return final_text
 
 def convert_pdf_to_txt(pdf_path, output_path):
-    """Extracts text from a PDF file, scrubs layout artifacts, formats TOC, and splits chapters."""
+    """Extracts text from a PDF file, handles bad characters, cleans up layouts, and builds page splits."""
     reader = pypdf.PdfReader(pdf_path)
     text = ""
     for page in reader.pages:
