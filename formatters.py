@@ -3,6 +3,7 @@ import re
 import zipfile
 from PIL import Image
 import pymupdf
+import docx
 
 def clean_text_content(text):
     """Strips out residual footer timestamps from the text stream."""
