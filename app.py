@@ -6,7 +6,7 @@ from formatters import convert_pdf_to_txt, convert_docx_to_txt, process_eink_ima
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_flash_messages"
 
-# Use /tmp for serverless runtime
+# Use /tmp for serverless runtime on Vercel
 UPLOAD_FOLDER = '/tmp/uploads'
 PROCESSED_FOLDER = '/tmp/processed'
 
@@ -40,13 +40,18 @@ def upload_text():
     input_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(input_path)
     
-    output_filename = filename.rsplit('.', 1)[0] + ".txt"
+    # UPDATED: Maps extension download output to .html for rich text/images
+    output_filename = filename.rsplit('.', 1)[0] + ".html"
     output_path = os.path.join(PROCESSED_FOLDER, output_filename)
     
     ext = filename.rsplit('.', 1)[1].lower()
     if ext == 'pdf':
         convert_pdf_to_txt(input_path, output_path)
     elif ext in ['doc', 'docx']:
+        # Note: docx extraction currently exports text. 
+        # If your docx files have images, we can update its formatter later!
+        output_filename_txt = filename.rsplit('.', 1)[0] + ".txt"
+        output_path = os.path.join(PROCESSED_FOLDER, output_filename_txt)
         convert_docx_to_txt(input_path, output_path)
     elif ext == 'txt':
         output_path = input_path 
@@ -67,7 +72,6 @@ def upload_image():
     input_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(input_path)
     
-    # FIX: Changed extension from .png to .jpg
     output_filename = "eink_" + filename.rsplit('.', 1)[0] + ".jpg"
     output_path = os.path.join(PROCESSED_FOLDER, output_filename)
     
