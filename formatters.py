@@ -1,59 +1,59 @@
 import os
 import re
 from PIL import Image
-import pymupdf  # Replaces pypdf for high-fidelity HTML layout processing
+import pymupdf
 import docx
+from ebooklib import epub
 
-def clean_html_artifacts(html_content):
-    """
-    Cleans residual timestamp text fragments and normalizes text properties 
-    so it displays nicely on e-ink reading screens.
-    """
-    # 1. Clear residual timestamp fragments (e.g. ghost "PM8", "AM13" artifacts)
-    html_content = re.sub(r'\b[APMpm]{2}\d{1,3}\b', '', html_content)
-    
-    # 2. Inject CSS directly into the HTML header to optimize layout for e-ink
-    # Forces hard page breaks before structural heading markers <h1>, <h2>, etc.
-    eink_css = """
-    <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 5%; color: #000; background-color: #fff; }
-        h1, h2, h3 { page-break-before: always; text-align: center; margin-top: 2em; margin-bottom: 1em; }
-        img { display: block; max-width: 100%; height: auto; margin: 1.5em auto; filter: grayscale(100%); }
-        p { text-align: justify; margin-bottom: 1.2em; text-indent: 1.5em; }
-        ul, ol { margin-bottom: 1.2em; padding-left: 2em; }
-    </style>
-    """
-    
-    if "</head>" in html_content:
-        html_content = html_content.replace("</head>", f"{eink_css}</head>")
-    else:
-        html_content = eink_css + html_content
-        
-    return html_content
+def clean_text_content(html_text):
+    """Strips out residual footer timestamps from the text stream."""
+    return re.sub(r'\b[APMpm]{2}\d{1,3}\b', '', html_text)
 
-def convert_pdf_to_txt(pdf_path, output_path):
+def convert_pdf_to_epub(pdf_path, output_path):
     """
-    Converts PDF to structural XHTML layouts with native base64 embedded images.
-    Note: 'output_path' will be saved as an .html asset file.
+    Converts PDF text layers and inline images directly into a standard 
+    reflowable EPUB file that is fully visible on the Xteink X3.
     """
     doc = pymupdf.open(pdf_path)
-    combined_html = "<html><head><meta charset='utf-8'></head><body>"
+    book = epub.EpubBook()
     
-    # Iterate through layout layers, extracting structural text flow alongside image embeds
+    # Extract filename without extension to use as the book title
+    title_name = os.path.basename(output_path).rsplit('.', 1)[0]
+    book.set_title(title_name)
+    book.set_language('en')
+    
+    combined_html = ""
     for page in doc:
-        # 'xhtml' format extracts text blocks AND embeds images as self-contained base64 strings
-        page_html = page.get_text("xhtml")
-        combined_html += page_html
+        # Pulls structural text alongside embedded base64 images
+        combined_html += page.get_text("xhtml")
         
-    combined_html += "</body></html>"
     doc.close()
     
-    # Run structural text cleaner to eliminate ghost timestamps
-    final_html = clean_html_artifacts(combined_html)
+    # Scrub bad text timestamps out of the compiled markup
+    cleaned_html = clean_text_content(combined_html)
     
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(final_html)
-        
+    # Wrap content inside a proper EPUB text chapter
+    chapter = epub.EpubHtml(title="Book Content", file_name="content.xhtml", lang="en")
+    
+    # Inject e-ink layout optimization CSS styles directly into the chapter structure
+    eink_styles = """
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 5%; color: #000; background-color: #fff; }
+        h1, h2, h3 { text-align: center; margin-top: 1.5em; margin-bottom: 1em; page-break-before: always; }
+        img { display: block; max-width: 100%; height: auto; margin: 1.5em auto; filter: grayscale(100%); }
+        p { text-align: justify; margin-bottom: 1.2em; text-indent: 1.2em; }
+    </style>
+    """
+    chapter.content = f"<html><head>{eink_styles}</head><body>{cleaned_html}</body></html>"
+    
+    # Bind chapter into the EPUB manifest framework
+    book.add_item(chapter)
+    book.toc = (chapter,)
+    book.spine = ['nav', chapter]
+    book.add_item(epub.EpubNav())
+    
+    # Save the container as a legitimate .epub file
+    epub.write_epub(output_path, book, {})
     return output_path
 
 def convert_docx_to_txt(docx_path, output_path):
