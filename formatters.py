@@ -14,7 +14,8 @@ def clean_text_content(text):
 def convert_pdf_to_epub(pdf_path, output_path):
     """
     Converts a PDF into a fully compliant EPUB archive completely natively
-    using Python's built-in zipfile engine. Fixed chunk_counter increment bug.
+    using Python's built-in zipfile engine. Utilizes ZIP_STORED to prevent 
+    compression mapping issues on lightweight e-ink microcontrollers.
     """
     doc = pymupdf.open(pdf_path)
     title_name = os.path.basename(output_path).rsplit('.', 1)[0]
@@ -27,7 +28,7 @@ def convert_pdf_to_epub(pdf_path, output_path):
     image_counter = 1
     current_chunk_paragraphs = []
     chunk_counter = 1
-    PAGES_PER_CHUNK = 8  # Safe chunk size to save Xteink memory
+    PAGES_PER_CHUNK = 8  # Safe chunk size to keep Xteink memory overhead low
     
     for page_num in range(len(doc)):
         page = doc[page_num]
@@ -82,7 +83,6 @@ def convert_pdf_to_epub(pdf_path, output_path):
                 spine_items.append(f'<itemref idref="sec_{chunk_counter}" />')
                 
                 current_chunk_paragraphs = []
-                # BUG FIXED HERE: Increments properly so sections are named 1, 2, 3 instead of resetting to 1
                 chunk_counter += 1
                 
     doc.close()
@@ -110,8 +110,10 @@ def convert_pdf_to_epub(pdf_path, output_path):
     </spine>
 </package>"""
 
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as epub:
-        epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+    # CRITICAL CHANGE: We force zipfile to write using zipfile.ZIP_STORED 
+    # This prevents compression errors on basic e-ink processors.
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_STORED) as epub:
+        epub.writestr('mimetype', 'application/epub+zip')
         
         epub.writestr('META-INF/container.xml', """<?xml version="1.0" encoding="utf-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
