@@ -14,12 +14,11 @@ def clean_text_content(text):
 def convert_pdf_to_epub(pdf_path, output_path):
     """
     Converts a PDF into a fully compliant EPUB archive completely natively
-    using Python's built-in zipfile engine. Guaranteed stable on Vercel.
+    using Python's built-in zipfile engine. Fixed chunk_counter increment bug.
     """
     doc = pymupdf.open(pdf_path)
     title_name = os.path.basename(output_path).rsplit('.', 1)[0]
     
-    # 1. Setup internal EPUB manifest tracking arrays
     manifest_items = []
     spine_items = []
     sections_content = {}
@@ -30,7 +29,6 @@ def convert_pdf_to_epub(pdf_path, output_path):
     chunk_counter = 1
     PAGES_PER_CHUNK = 8  # Safe chunk size to save Xteink memory
     
-    # 2. Extract layout data and process page blocks
     for page_num in range(len(doc)):
         page = doc[page_num]
         
@@ -55,7 +53,6 @@ def convert_pdf_to_epub(pdf_path, output_path):
             img_filename = f"image_{image_counter}.{image_ext}"
             images_content[img_filename] = image_bytes
             
-            # Append standard relative structural tag
             current_chunk_paragraphs.append(f'<div style="text-align:center; margin: 1em 0;"><img src="{img_filename}" /></div>')
             image_counter += 1
             
@@ -85,17 +82,16 @@ def convert_pdf_to_epub(pdf_path, output_path):
                 spine_items.append(f'<itemref idref="sec_{chunk_counter}" />')
                 
                 current_chunk_paragraphs = []
-                chunk_counter = 1
+                # BUG FIXED HERE: Increments properly so sections are named 1, 2, 3 instead of resetting to 1
+                chunk_counter += 1
                 
     doc.close()
     
-    # 3. Add extracted image files to manifest track list
     for img_name in images_content.keys():
         ext = img_name.rsplit('.', 1)[1]
         mime = "image/jpeg" if ext in ['jpg', 'jpeg'] else f"image/{ext}"
         manifest_items.append(f'<item id="{img_name}" href="{img_name}" media-type="{mime}" />')
 
-    # 4. Write structural index content manifests
     manifest_str = "\n    ".join(manifest_items)
     spine_str = "\n    ".join(spine_items)
     
@@ -114,12 +110,9 @@ def convert_pdf_to_epub(pdf_path, output_path):
     </spine>
 </package>"""
 
-    # 5. Pack everything neatly using standard Zip Compression
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as epub:
-        # Crucial EPUB standard rule: mimetype MUST be written first and uncompressed
         epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
         
-        # Structure directories mapping
         epub.writestr('META-INF/container.xml', """<?xml version="1.0" encoding="utf-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
     <rootfiles>
@@ -129,11 +122,9 @@ def convert_pdf_to_epub(pdf_path, output_path):
         
         epub.writestr('OEBPS/content.opf', content_opf)
         
-        # Write pages
         for f_name, f_body in sections_content.items():
             epub.writestr(f"OEBPS/{f_name}", f_body)
             
-        # Write images
         for img_name, img_bytes in images_content.items():
             epub.writestr(f"OEBPS/{img_name}", img_bytes)
             
