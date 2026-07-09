@@ -6,9 +6,11 @@ from formatters import convert_pdf_to_txt, convert_docx_to_txt, process_eink_ima
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_flash_messages"
 
-# VERCEL FIX: Use the /tmp directory for serverless environments
+# FIX FOR VERCEL: Point to the only writeable directory available in serverless
 UPLOAD_FOLDER = '/tmp/uploads'
 PROCESSED_FOLDER = '/tmp/processed'
+
+# Ensure the folders exist within /tmp
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 
