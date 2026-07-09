@@ -1,165 +1,96 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Ink Master Control Dashboard</title>
-    <style>
-        :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --accent-color: #00adb5;
-            --text-color: #eeeeee;
-            --text-muted: #888888;
-            --danger-color: #ff5722;
-        }
+<div id="books-section" class="tab-content">
+            <h2>Books & Reading Documents</h2>
+            <div class="asset-grid">
+                {% for book in books %}
+                    <div class="card" id="asset-{{ book.id }}">
+                        <div>
+                            <p class="card-title">{{ book.title }}</p>
+                            <p class="card-meta">Format: TXT &nbsp;|&nbsp; Size: {{ book.size }}</p>
+                        </div>
+                        <div class="card-actions">
+                            <a class="btn-link" href="{{ url_for('download_file', filename=book.filename) }}" download>Download Asset</a>
+                            <button class="delete-btn" onclick="deleteAsset({{ book.id }})">Delete</button>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="no-data">No parsed text documents available in library storage.</p>
+                {% endfor %}
+            </div>
+        </div>
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-        }
+        <div id="images-section" class="tab-content" style="display: none;">
+            <h2>E-Ink Images & Sleep Wallpapers</h2>
+            <div class="asset-grid">
+                {% for img in images %}
+                    <div class="card" id="asset-{{ img.id }}">
+                        <div>
+                            <p class="card-title">{{ img.title }}</p>
+                            <p class="card-meta">Format: PNG & BMP &nbsp;|&nbsp; Size: {{ img.size }}</p>
+                            
+                            <div class="preview-box">
+                                <img class="preview-img" src="{{ url_for('download_file', filename=img.filename) }}" alt="{{ img.title }}">
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <a class="btn-link" href="{{ url_for('download_file', filename=img.filename) }}" download>Get PNG</a>
+                            <a class="btn-link" href="{{ url_for('download_file', filename=img.sleep_filename) }}" download>Get BMP</a>
+                            <button class="delete-btn" onclick="deleteAsset({{ img.id }})">Delete</button>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="no-data">No customized graphics deployed to pipeline.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 
-        .container {
-            max-width: 1000px;
-            margin: 0;
-            padding: 20px;
+    <script>
+        // TAB TOGGLE LOGIC: Makes your interface responsive
+        const booksBtn = document.querySelectorAll('.upload-section + h2, button, div'); 
+        
+        // Let's hook cleanly into your specific UI buttons
+        const tabs = document.getElementsByClassName('tab-content');
+        
+        function setupTabInteractions() {
+            // Find your tab header buttons automatically
+            const tabButtons = document.querySelectorAll('button, div');
+            
+            // Fast custom event binder for your dashboard buttons:
+            document.body.addEventListener('click', function(e) {
+                if (e.target.textContent.includes('Books')) {
+                    document.getElementById('books-section').style.display = 'block';
+                    document.getElementById('images-section').style.display = 'none';
+                } else if (e.target.textContent.includes('Images')) {
+                    document.getElementById('books-section').style.display = 'none';
+                    document.getElementById('images-section').style.display = 'block';
+                }
+            });
         }
+        
+        setupTabInteractions();
 
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 5px;
-            font-weight: 700;
+        function deleteAsset(assetId) {
+            if (confirm("Are you sure you want to remove this item from your library storage?")) {
+                fetch(`/api/delete/${assetId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const element = document.getElementById(`asset-${assetId}`);
+                        if (element) {
+                            element.remove();
+                        }
+                    } else {
+                        alert("Error: " + (data.error || "Could not complete deletion request."));
+                    }
+                })
+                .catch(err => {
+                    console.error("Deletion error:", err);
+                    alert("Server communications failure occurred during transaction.");
+                });
+            }
         }
-
-        .subtitle {
-            color: var(--text-muted);
-            margin-bottom: 30px;
-            font-size: 0.95rem;
-        }
-
-        h2 {
-            font-size: 1.4rem;
-            border-bottom: 1px solid #333;
-            padding-bottom: 8px;
-            margin-top: 40px;
-            margin-bottom: 20px;
-            color: var(--accent-color);
-        }
-
-        /* Upload Area styling */
-        .upload-section {
-            background-color: var(--card-bg);
-            border: 2px dashed #333;
-            border-radius: 8px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .upload-btn {
-            background-color: var(--accent-color);
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            font-size: 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            margin-top: 10px;
-        }
-
-        /* Grid Layout for Assets */
-        .asset-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid #2d2d2d;
-            border-radius: 8px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            position: relative;
-        }
-
-        .card-title {
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin: 0 0 5px 0;
-            word-wrap: break-word;
-        }
-
-        .card-meta {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-bottom: 15px;
-        }
-
-        /* Image Display Box */
-        .preview-box {
-            background: #111;
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 1px solid #2a2a2a;
-        }
-
-        .preview-img {
-            max-width: 100%;
-            max-height: 180px;
-            object-fit: contain;
-            border-radius: 4px;
-        }
-
-        /* Action Controls */
-        .card-actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin-top: auto;
-        }
-
-        .btn-link {
-            color: var(--accent-color);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .btn-link:hover {
-            text-decoration: underline;
-        }
-
-        .delete-btn {
-            background: none;
-            border: none;
-            color: var(--danger-color);
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            padding: 0;
-            margin-left: auto;
-        }
-
-        .delete-btn:hover {
-            text-decoration: underline;
-        }
-
-        .no-data {
-            color: var(--text-muted);
-            font-style: italic;
-            grid-column: 1 / -1;
-        }
-    </style>
-</head>
-<body>
+    </script>
+</body>
+</html>
