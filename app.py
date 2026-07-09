@@ -6,27 +6,20 @@ from formatters import convert_pdf_to_txt, convert_docx_to_txt, process_eink_ima
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_flash_messages"
 
-# FIX FOR VERCEL: Point to the only writeable directory available in serverless
+# Use /tmp for serverless runtime
 UPLOAD_FOLDER = '/tmp/uploads'
 PROCESSED_FOLDER = '/tmp/processed'
-
-# Ensure the folders exist within /tmp
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(PROCESSED_FOLDER, exist_ok=True)
-
-ALLOWED_TEXT_EXT = {'pdf', 'doc', 'docx', 'txt'}
-ALLOWED_IMG_EXT = {'png', 'jpg', 'jpeg', 'bmp', 'webp'}
-
-# ... (Keep the rest of your routes exactly the same) ...
-
-# VERCEL FIX: Expose the app object as 'app' for the WSGI handler
-# You can remove or keep the __main__ block, Vercel ignores it anyway
 
 ALLOWED_TEXT_EXT = {'pdf', 'doc', 'docx', 'txt'}
 ALLOWED_IMG_EXT = {'png', 'jpg', 'jpeg', 'bmp', 'webp'}
 
 def allowed_file(filename, allowed_set):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_set
+
+def ensure_directories():
+    """Helper to ensure folders exist only when a request happens."""
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 
 @app.route('/', methods=['GET'])
 def index():
@@ -40,22 +33,22 @@ def upload_text():
     if file.filename == '' or not allowed_file(file.filename, ALLOWED_TEXT_EXT):
         return "Invalid file type", 400
     
+    # Create folders safely right before use
+    ensure_directories()
+    
     filename = secure_filename(file.filename)
     input_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(input_path)
     
-    # Define output txt path
     output_filename = filename.rsplit('.', 1)[0] + ".txt"
     output_path = os.path.join(PROCESSED_FOLDER, output_filename)
     
-    # Process based on type
     ext = filename.rsplit('.', 1)[1].lower()
     if ext == 'pdf':
         convert_pdf_to_txt(input_path, output_path)
     elif ext in ['doc', 'docx']:
         convert_docx_to_txt(input_path, output_path)
     elif ext == 'txt':
-        # If it's already a txt file, just pass it through
         output_path = input_path 
 
     return send_file(output_path, as_attachment=True)
@@ -68,18 +61,16 @@ def upload_image():
     if file.filename == '' or not allowed_file(file.filename, ALLOWED_IMG_EXT):
         return "Invalid image type", 400
     
+    # Create folders safely right before use
+    ensure_directories()
+    
     filename = secure_filename(file.filename)
     input_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(input_path)
     
-    # Prepare the optimized e-ink image
     output_filename = "eink_" + filename.rsplit('.', 1)[0] + ".png"
     output_path = os.path.join(PROCESSED_FOLDER, output_filename)
     
-    # Process image (grayscale + resize)
     process_eink_image(input_path, output_path)
     
     return send_file(output_path, as_attachment=True)
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5001)
