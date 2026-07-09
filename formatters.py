@@ -39,9 +39,10 @@ def clean_extracted_text(text):
     url_pattern = r'https?://\S+|www\.\S+'
     text = re.sub(url_pattern, '', text)
     
-    # 3. Wipe out running page timestamp footers (e.g., "10/24/2024 14:32" or "3:15 PM")
-    text = re.re = re.sub(r'\b\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?(\s*[APMpm]{2})?\b', '', text)
+    # 3. Wipe out running page timestamp footers and residual PM/AM page fragments (e.g., "PM8", "AM13")
+    text = re.sub(r'\b\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?(\s*[APMpm]{2})?\b', '', text)
     text = re.sub(r'\b\d{1,2}:\d{2}\s*[APMpm]{2}\b', '', text)
+    text = re.sub(r'\b[APMpm]{2}\d{1,3}\b', '', text) # Wipes out artifacts like PM8, AM12, pm13
     
     # 4. Remove Adobe InDesign template markers
     text = re.sub(r'\S*?\.indd\S*', '', text)
@@ -66,7 +67,6 @@ def clean_extracted_text(text):
             continue
 
         # -- FORMAT SYSTEM: CLEAN TABLE OF CONTENTS --
-        # Detect lines ending with digits (page numbers) or containing dot leaders
         is_toc_line = '...' in stripped_line or re.search(r'\s+\d+$', stripped_line)
         
         if is_toc_line and not any(marker in stripped_line.lower() for marker in chapter_markers):
@@ -74,11 +74,9 @@ def clean_extracted_text(text):
                 cleaned_lines.append(" ".join(current_paragraph))
                 current_paragraph = []
             
-            # Remove any ugly dot sequences, strip excess gaps, and format as a bulleted row
             no_dots = re.sub(r'\.{2,}', ' ', stripped_line)
             clean_row = re.sub(r'\s+', ' ', no_dots).strip()
             
-            # Format nicely as: "  • Chapter Title (Page Number)"
             match = re.search(r'(.*)\s+(\d+)$', clean_row)
             if match:
                 title, page = match.groups()
@@ -87,17 +85,19 @@ def clean_extracted_text(text):
                 cleaned_lines.append(f"  • {clean_row}")
             continue
 
-        # -- PAGE BREAK SYSTEM: CHAPTER DETECTION --
-        is_chapter_header = any(
-            stripped_line.lower().startswith(marker) for marker in chapter_markers
-        ) or re.match(r'^(?=[MDCLXVI])M*(C[MD]|D?C{0,3})(X[CL]|L?X{0,3})(I[XV]|V?I{0,3})$', stripped_line)
+        # -- PAGE BREAK SYSTEM: CHAPTER DETECTION WITH LENGTH SAFEGUARDS --
+        # Must match a marker word OR roman numeral, AND be short (under 60 characters) to avoid eating body text
+        looks_like_marker = any(stripped_line.lower().startswith(marker) for marker in chapter_markers) or \
+                            re.match(r'^(?=[MDCLXVI])M*(C[MD]|D?C{0,3})(X[CL]|L?X{0,3})(I[XV]|V?I{0,3})$', stripped_line)
+        
+        is_chapter_header = looks_like_marker and len(stripped_line) < 60
         
         if is_chapter_header:
             if current_paragraph:
                 cleaned_lines.append(" ".join(current_paragraph))
                 current_paragraph = []
             
-            # Force a visual page break using a significant padding break blocks
+            # Force a visual page break using sequential line break offsets
             cleaned_lines.append("\n\n\n\n\n\n\n\n\n\n") 
             cleaned_lines.append(f"========================================")
             cleaned_lines.append(f"   {stripped_line.upper()}")
