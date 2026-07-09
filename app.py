@@ -1,15 +1,24 @@
 import os
-from flask import Flask, render_template, request, send_file, flash, redirect
+from flask import Flask, render_template, request, send_file, redirect
 from werkzeug.utils import secure_filename
 from formatters import convert_pdf_to_txt, convert_docx_to_txt, process_eink_image
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_flash_messages"
 
-UPLOAD_FOLDER = 'uploads'
-PROCESSED_FOLDER = 'processed'
+# VERCEL FIX: Use the /tmp directory for serverless environments
+UPLOAD_FOLDER = '/tmp/uploads'
+PROCESSED_FOLDER = '/tmp/processed'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+
+ALLOWED_TEXT_EXT = {'pdf', 'doc', 'docx', 'txt'}
+ALLOWED_IMG_EXT = {'png', 'jpg', 'jpeg', 'bmp', 'webp'}
+
+# ... (Keep the rest of your routes exactly the same) ...
+
+# VERCEL FIX: Expose the app object as 'app' for the WSGI handler
+# You can remove or keep the __main__ block, Vercel ignores it anyway
 
 ALLOWED_TEXT_EXT = {'pdf', 'doc', 'docx', 'txt'}
 ALLOWED_IMG_EXT = {'png', 'jpg', 'jpeg', 'bmp', 'webp'}
