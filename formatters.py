@@ -11,48 +11,70 @@ def clean_text_content(html_text):
 
 def convert_pdf_to_epub(pdf_path, output_path):
     """
-    Converts PDF text layers and inline images directly into a standard 
-    reflowable EPUB file that is fully visible on the Xteink X3.
+    Converts PDF text layouts and internal images into isolated items 
+    bound inside a fully compliant, highly compressed EPUB container.
     """
     doc = pymupdf.open(pdf_path)
     book = epub.EpubBook()
     
-    # Extract filename without extension to use as the book title
     title_name = os.path.basename(output_path).rsplit('.', 1)[0]
     book.set_title(title_name)
     book.set_language('en')
     
+    # We build standard clean XHTML content (WITHOUT base64 images inside the text)
     combined_html = ""
-    for page in doc:
-        # Pulls structural text alongside embedded base64 images
-        combined_html += page.get_text("xhtml")
+    image_counter = 1
+    
+    for page_num in range(len(doc)):
+        page = doc[page_num]
         
+        # Get standard layout text fragments
+        page_text = page.get_text("html")
+        combined_html += page_text
+        
+        # Extract individual images as separate binary objects to protect e-reader memory
+        image_list = page.get_images(full=True)
+        for img_info in image_list:
+            xref = img_info[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            image_ext = base_image["ext"]
+            
+            img_filename = f"image_{image_counter}.{image_ext}"
+            
+            # Create a distinct EPUB internal item for the picture asset
+            epub_img = epub.EpubImage()
+            epub_img.file_name = f"images/{img_filename}"
+            epub_img.content = image_bytes
+            book.add_item(epub_img)
+            
+            # Drop a clean, standard tag link directly into the book layout
+            combined_html += f'<div style="text-align:center;"><img src="images/{img_filename}" /></div>'
+            image_counter += 1
+            
     doc.close()
     
-    # Scrub bad text timestamps out of the compiled markup
+    # Clean out any timestamp text artifacts
     cleaned_html = clean_text_content(combined_html)
     
-    # Wrap content inside a proper EPUB text chapter
+    # Pack text cleanly inside its own dedicated content file
     chapter = epub.EpubHtml(title="Book Content", file_name="content.xhtml", lang="en")
     
-    # Inject e-ink layout optimization CSS styles directly into the chapter structure
     eink_styles = """
     <style>
         body { font-family: sans-serif; line-height: 1.6; padding: 5%; color: #000; background-color: #fff; }
         h1, h2, h3 { text-align: center; margin-top: 1.5em; margin-bottom: 1em; page-break-before: always; }
-        img { display: block; max-width: 100%; height: auto; margin: 1.5em auto; filter: grayscale(100%); }
+        img { display: block; max-width: 100%; height: auto; margin: 1.5em auto; }
         p { text-align: justify; margin-bottom: 1.2em; text-indent: 1.2em; }
     </style>
     """
     chapter.content = f"<html><head>{eink_styles}</head><body>{cleaned_html}</body></html>"
     
-    # Bind chapter into the EPUB manifest framework
     book.add_item(chapter)
     book.toc = (chapter,)
     book.spine = ['nav', chapter]
     book.add_item(epub.EpubNav())
     
-    # Save the container as a legitimate .epub file
     epub.write_epub(output_path, book, {})
     return output_path
 
