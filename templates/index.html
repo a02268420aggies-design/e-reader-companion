@@ -3,321 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Reader Bookshelf</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>E-Ink Master Control Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-color: #00adb5;
+            --text-color: #eeeeee;
+            --text-muted: #888888;
+            --danger-color: #ff5722;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+        }
+
+        /* Upload Area styling */
+        .upload-section {
+            background-color: var(--card-bg);
+            border: 2px dashed #333;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .upload-btn {
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        /* Grid Layout for Assets */
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0 0 5px 0;
+            word-wrap: break-word;
+        }
+
+        .card-meta {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+        }
+
+        /* Image Display Box */
+        .preview-box {
+            background: #111;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #2a2a2a;
+        }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 180px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        /* Action Controls */
+        .card-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .btn-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0;
+            margin-left: auto;
+        }
+
+        .delete-btn:hover {
+            text-decoration: underline;
+        }
+
+        .no-data {
+            color: var(--text-muted);
+            font-style: italic;
+            grid-column: 1 / -1;
+        }
+    </style>
 </head>
-<body class="bg-slate-50 font-sans min-h-screen text-slate-800">
-
-    <div class="max-w-6xl mx-auto py-12 px-6">
-        <header class="text-center mb-10">
-            <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight mb-2">✨ Your Custom Bookshelf</h1>
-            <p class="text-slate-500 text-lg">Organize reading materials and custom dithered E-ink images for your e-reader.</p>
-        </header>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
-                <div>
-                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
-                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">🗄️ Master Library</h2>
-                        
-                        <form action="/api/upload" method="POST" enctype="multipart/form-data" class="w-full sm:w-auto">
-                            <label class="block text-center bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-medium py-1.5 px-4 rounded-xl transition-colors cursor-pointer text-xs">
-                                📥 Import New File to Server
-                                <input type="file" name="file" accept=".txt,.pdf,.epub,.png,.jpg,.jpeg,.bmp" onchange="this.form.submit()" class="hidden">
-                            </label>
-                        </form>
-                    </div>
-
-                    <div class="flex gap-2 mb-4 bg-slate-100 p-1 rounded-xl text-xs font-medium self-start inline-flex">
-                        <button onclick="switchLeftTab('books')" id="tab-left-books" class="px-4 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-xs cursor-pointer">
-                            📚 Books
-                        </button>
-                        <button onclick="switchLeftTab('images')" id="tab-left-images" class="px-4 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-900 cursor-pointer">
-                            🖼️ Images
-                        </button>
-                    </div>
-                    
-                    <div id="left-sort-bar" class="flex gap-2 mb-4 text-[11px] font-medium text-slate-400 items-center">
-                        <span>Sort:</span>
-                        <a href="/?sort=recent" class="hover:text-slate-900 {% if current_sort == 'recent' %}text-blue-600 font-bold{% endif %}">⏱️ Recent</a>
-                        <span>•</span>
-                        <a href="/?sort=alpha" class="hover:text-slate-900 {% if current_sort == 'alpha' %}text-blue-600 font-bold{% endif %}">🔤 A-Z</a>
-                    </div>
-
-                    <div class="mb-4 relative">
-                        <input type="text" id="library-search" oninput="filterLibrary()" placeholder="🔍 Search library titles..." 
-                               class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl py-2 pl-8 pr-4 outline-hidden focus:border-blue-400 focus:bg-white transition-all">
-                    </div>
-                    
-                    <div class="space-y-2 min-h-[300px] max-h-[500px] overflow-y-auto pr-1" id="master-books-container">
-                        {% for book in books if "🖼️ Image:" not in book.title %}
-                        <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-100/80 transition-all cursor-grab active:cursor-grabbing select-none relative group" 
-                             draggable="true" id="book-{{ book.id }}" data-filename="{{ book.filename }}">
-                            <div class="flex items-center gap-3 overflow-hidden pr-8">
-                                <span class="text-xl flex-shrink-0">📖</span>
-                                <div class="overflow-hidden">
-                                    <h3 class="font-semibold text-slate-900 text-xs truncate">{{ book.title }}</h3>
-                                    <p class="text-[10px] text-slate-400 truncate">{{ book.filename }}</p>
-                                </div>
-                            </div>
-                            <button onclick="deleteBookFromServer(event, '{{ book.id }}')" class="absolute right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 cursor-pointer text-xs">🗑️</button>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="space-y-2 min-h-[300px] max-h-[500px] overflow-y-auto pr-1 hidden" id="master-images-container">
-                        {% for book in books if "🖼️ Image:" in book.title %}
-                        <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-100/80 transition-all cursor-grab active:cursor-grabbing select-none relative group" 
-                             draggable="true" id="book-{{ book.id }}" data-filename="{{ book.filename }}">
-                            <div class="flex items-center gap-3 overflow-hidden pr-8">
-                                <span class="text-xl flex-shrink-0">🎨</span>
-                                <div class="overflow-hidden">
-                                    <h3 class="font-semibold text-slate-900 text-xs truncate">{{ book.title.replace('🖼️ Image: ', '') }}</h3>
-                                    <p class="text-[10px] text-slate-400 truncate">{{ book.filename }}</p>
-                                </div>
-                            </div>
-                            <button onclick="deleteBookFromServer(event, '{{ book.id }}')" class="absolute right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 cursor-pointer text-xs">🗑️</button>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                </div>
-
-                <div class="mt-6 pt-3 border-t border-slate-100 flex justify-end">
-                    <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-semibold">
-                        📊 Total Items: {{ books|length }}
-                    </span>
-                </div>
-            </div>
-
-            <div class="bg-slate-900/5 border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col justify-between" id="sd-queue-zone">
-                <div class="flex-1 flex flex-col">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">📟 Your SD Card Queue</h2>
-                        <span class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium" id="queue-counter">0 Items</span>
-                    </div>
-
-                    <div class="flex gap-2 mb-4 bg-slate-200/60 p-1 rounded-xl text-xs font-medium self-start inline-flex">
-                        <button onclick="switchRightTab('books')" id="tab-right-books" class="px-4 py-1 rounded-lg transition-all bg-white text-slate-900 shadow-xs cursor-pointer">
-                            Books (<span id="count-queued-books">0</span>)
-                        </button>
-                        <button onclick="switchRightTab('images')" id="tab-right-images" class="px-4 py-1 rounded-lg transition-all text-slate-500 hover:text-slate-900 cursor-pointer">
-                            Images (<span id="count-queued-images">0</span>)
-                        </button>
-                    </div>
-                    
-                    <div class="space-y-2 flex-1 min-h-[250px] max-h-[450px] overflow-y-auto mb-4" id="sd-card-books-queue">
-                        <div class="queue-placeholder h-full flex flex-col items-center justify-center text-slate-400 py-16 pointer-events-none">
-                            <span class="text-4xl mb-2">📥</span>
-                            <p class="text-xs font-medium">Drop text books here</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2 flex-1 min-h-[250px] max-h-[450px] overflow-y-auto mb-4 hidden" id="sd-card-images-queue">
-                        <div class="queue-placeholder h-full flex flex-col items-center justify-center text-slate-400 py-16 pointer-events-none">
-                            <span class="text-4xl mb-2">🖼️</span>
-                            <p class="text-xs font-medium">Drop dithered images here</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pt-2 border-t border-dashed border-slate-200">
-                    <button onclick="syncToSDCard()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 px-4 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 text-sm cursor-pointer">
-                        💾 <span>Sync Queue to SD Card</span>
-                    </button>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <script>
-        // Tab switching mechanisms
-        function switchLeftTab(type) {
-            const btnBooks = document.getElementById('tab-left-books');
-            const btnImages = document.getElementById('tab-left-images');
-            const boxBooks = document.getElementById('master-books-container');
-            const boxImages = document.getElementById('master-images-container');
-            const sortBar = document.getElementById('left-sort-bar');
-
-            if (type === 'books') {
-                btnBooks.className = "px-4 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-xs cursor-pointer";
-                btnImages.className = "px-4 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-900 cursor-pointer";
-                boxBooks.classList.remove('hidden');
-                boxImages.add('hidden');
-                sortBar.classList.remove('hidden');
-            } else {
-                btnImages.className = "px-4 py-1.5 rounded-lg transition-all bg-white text-slate-900 shadow-xs cursor-pointer";
-                btnBooks.className = "px-4 py-1.5 rounded-lg transition-all text-slate-500 hover:text-slate-900 cursor-pointer";
-                boxImages.classList.remove('hidden');
-                boxBooks.classList.add('hidden');
-                sortBar.classList.add('hidden');
-            }
-        }
-
-        function switchRightTab(type) {
-            const btnBooks = document.getElementById('tab-right-books');
-            const btnImages = document.getElementById('tab-right-images');
-            const queueBooks = document.getElementById('sd-card-books-queue');
-            const queueImages = document.getElementById('sd-card-images-queue');
-
-            if (type === 'books') {
-                btnBooks.className = "px-4 py-1 rounded-lg transition-all bg-white text-slate-900 shadow-xs cursor-pointer";
-                btnImages.className = "px-4 py-1 rounded-lg transition-all text-slate-500 hover:text-slate-900 cursor-pointer";
-                queueBooks.classList.remove('hidden');
-                queueImages.classList.add('hidden');
-            } else {
-                btnImages.className = "px-4 py-1 rounded-lg transition-all bg-white text-slate-900 shadow-xs cursor-pointer";
-                btnBooks.className = "px-4 py-1 rounded-lg transition-all text-slate-500 hover:text-slate-900 cursor-pointer";
-                queueImages.classList.remove('hidden');
-                queueBooks.classList.add('hidden');
-            }
-        }
-
-        // Global State & Drag Mechanics
-        const masterLibrary = document.body; // Listens globally for items
-        const sdQueueZone = document.getElementById('sd-queue-zone');
-        let queuedBooks = new Set();
-
-        async function deleteBookFromServer(event, bookId) {
-            event.stopPropagation();
-            if (!confirm("Remove this item completely?")) return;
-            try {
-                const response = await fetch(`/api/delete/${bookId}`, { method: 'POST' });
-                if (response.ok) window.location.reload();
-            } catch (err) { alert(err.message); }
-        }
-
-        masterLibrary.addEventListener('dragstart', (e) => {
-            const item = e.target.closest('[draggable="true"]');
-            if (item) {
-                e.dataTransfer.setData('text/plain', item.id);
-                sdQueueZone.classList.add('border-blue-400', 'bg-blue-50/20');
-            }
-        });
-
-        masterLibrary.addEventListener('dragend', () => {
-            sdQueueZone.classList.remove('border-blue-400', 'bg-blue-50/20');
-        });
-
-        sdQueueZone.addEventListener('dragover', (e) => { e.preventDefault(); });
-
-        sdQueueZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            sdQueueZone.classList.remove('border-blue-400', 'bg-blue-50/20');
-            
-            const bookId = e.dataTransfer.getData('text/plain');
-            const originalBook = document.getElementById(bookId);
-            
-            if (originalBook && !queuedBooks.has(bookId)) {
-                queuedBooks.add(bookId);
-                
-                // Route target to right tray category matching file type
-                const filename = originalBook.getAttribute('data-filename');
-                const isImage = filename.endsWith('.png');
-                const targetQueue = isImage ? document.getElementById('sd-card-images-queue') : document.getElementById('sd-card-books-queue');
-                
-                // Hide that specific tray's placeholder text
-                const placeholder = targetQueue.querySelector('.queue-placeholder');
-                if (placeholder) placeholder.classList.add('hidden');
-                
-                const clone = originalBook.cloneNode(true);
-                clone.setAttribute('draggable', 'false');
-                clone.classList.remove('cursor-grab', 'hover:bg-slate-100/80', 'relative', 'group');
-                clone.classList.add('bg-white', 'shadow-xs', 'relative');
-                
-                const oldTrash = clone.querySelector('button');
-                if (oldTrash) oldTrash.remove();
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.innerHTML = '✕';
-                removeBtn.className = 'absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500 text-xs font-bold transition-colors cursor-pointer';
-                removeBtn.onclick = () => {
-                    clone.remove();
-                    queuedBooks.delete(bookId);
-                    updateQueueStats();
-                };
-                
-                clone.appendChild(removeBtn);
-                targetQueue.appendChild(clone);
-                
-                // Automatically switch tabs to let them see what they dropped!
-                switchRightTab(isImage ? 'images' : 'books');
-                updateQueueStats();
-            }
-        });
-
-        function updateQueueStats() {
-            const totalBooks = document.getElementById('sd-card-books-queue').querySelectorAll('[data-filename]').length;
-            const totalImages = document.getElementById('sd-card-images-queue').querySelectorAll('[data-filename]').length;
-            
-            document.getElementById('count-queued-books').innerText = totalBooks;
-            document.getElementById('count-queued-images').innerText = totalImages;
-            document.getElementById('queue-counter').innerText = `${totalBooks + totalImages} Item${(totalBooks+totalImages) === 1 ? '' : 's'}`;
-            
-            if (totalBooks === 0) document.getElementById('sd-card-books-queue').querySelector('.queue-placeholder')?.classList.remove('hidden');
-            if (totalImages === 0) document.getElementById('sd-card-images-queue').querySelector('.queue-placeholder')?.classList.remove('hidden');
-        }
-
-        async function syncToSDCard() {
-            if (queuedBooks.size === 0) {
-                alert("Your SD card queue is currently empty.");
-                return;
-            }
-
-            try {
-                const directoryHandle = await window.showDirectoryPicker();
-                const targetItems = document.querySelectorAll('#sd-queue-zone [data-filename]');
-                
-                for (const el of targetItems) {
-                    const filename = el.getAttribute('data-filename');
-                    const fileResponse = await fetch(`/api/device/download/${filename}`);
-                    
-                    const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
-                    const writable = await fileHandle.createWritable();
-                    
-                    // Route images as blobs, text streams directly
-                    if (filename.endsWith('.png')) {
-                        const blob = await fileResponse.blob();
-                        await writable.write(blob);
-                    } else {
-                        const text = await fileResponse.text();
-                        await writable.write(text);
-                    }
-                    await writable.close();
-                }
-                
-                alert("✨ Sync successful! E-Reader SD card updated!");
-                
-                document.querySelectorAll('#sd-queue-zone [data-filename]').forEach(el => el.remove());
-                queuedBooks.clear();
-                updateQueueStats();
-                
-            } catch (err) {
-                if (err.name !== 'AbortError') alert("Sync failed: " + err.message);
-            }
-        }
-
-        // Instant Client-Side Filtering
-       // Instant Client-Side Filtering
-        function filterLibrary() {
-            // Changed .strip to .trim()
-            const query = document.getElementById('library-search').value.toLowerCase().trim();
-            
-            // Grab all book and image cards across both left-side containers
-            const allItems = document.querySelectorAll('#master-books-container [id^="book-"], #master-images-container [id^="book-"]');
-            
-            allItems.forEach(item => {
-                const titleText = item.querySelector('h3').innerText.toLowerCase();
-                
-                if (titleText.includes(query)) {
-                    item.classList.remove('hidden'); // Show item
-                } else {
-                    item.classList.add('hidden'); // Hide item
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+<body>
