@@ -27,13 +27,19 @@ def convert_docx_to_txt(docx_path, output_path):
 
 def process_eink_image(image_path, output_path, target_size=(1404, 1872)):
     """
-    Resizes and converts an image to grayscale.
+    Resizes and converts an image to a sleep-screen compatible grayscale JPEG.
     Adjust target_size to match your Exteink X3's exact resolution.
     """
     with Image.open(image_path) as img:
-        # Convert to grayscale (L mode is perfect for e-ink screens)
+        # Step 1: Convert to pure Grayscale ("L")
         img = img.convert("L")
-        # Resize to fit the screen nicely
+        
+        # Step 2: Convert to "RGB" mode so it can save properly as a JPEG
+        img = img.convert("RGB")
+        
+        # Step 3: Resize to fit the screen resolution nicely
         img = img.resize(target_size, Image.Resampling.LANCZOS)
-        img.save(output_path, "PNG") # PNG or BMP usually work best for sleep screens
+        
+        # Step 4: Save as JPEG with high quality
+        img.save(output_path, "JPEG", quality=95)
     return output_path

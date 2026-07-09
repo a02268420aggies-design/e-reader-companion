@@ -61,14 +61,14 @@ def upload_image():
     if file.filename == '' or not allowed_file(file.filename, ALLOWED_IMG_EXT):
         return "Invalid image type", 400
     
-    # Create folders safely right before use
     ensure_directories()
     
     filename = secure_filename(file.filename)
     input_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(input_path)
     
-    output_filename = "eink_" + filename.rsplit('.', 1)[0] + ".png"
+    # FIX: Changed extension from .png to .jpg
+    output_filename = "eink_" + filename.rsplit('.', 1)[0] + ".jpg"
     output_path = os.path.join(PROCESSED_FOLDER, output_filename)
     
     process_eink_image(input_path, output_path)
